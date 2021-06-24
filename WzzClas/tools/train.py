@@ -22,7 +22,7 @@ from zzClassifier.losses import rzloss
 from zzClassifier.models import gan
 from zzClassifier.models.resnet import resnet18
 from zzClassifier.models.models import classifier32, classifier32ABN
-from zzClassifier.core import train, train_cs, test
+from zzClassifier.core import train, train_cs, test, build_optimizer
 from zzClassifier.core.model_builder import build_model
 from utils import Logger, save_networks, load_networks
 
@@ -30,8 +30,8 @@ from utils import Logger, save_networks, load_networks
 def get_args():
     parser = argparse.ArgumentParser("Training")
 
+    # dataset
     parser.add_argument('--dataset', type=str, default='product')
-
     parser.add_argument('--train_dataroot', type=str, default='/home/ppz/wzj/cac-openset-master/data/jml/train')
     parser.add_argument('--val_dataroot', type=str, default='/home/ppz/wzj/cac-openset-master/data/jml/val')
     parser.add_argument('--unknown_train_dataroot', type=str, default='/home/ppz/wzj/cac-openset-master/data/jml/unknow_train')
@@ -44,8 +44,11 @@ def get_args():
     parser.add_argument('--img_size', type=int, default=224)
     parser.add_argument('--batch-size', type=int, default=32)
     parser.add_argument('--lr', type=float, default=0.1, help="learning rate for model")
+    parser.add_argument('--optimizer', type=str, default='SGD', help="optimizer")
+    parser.add_argument('--decay_step', type=float, default=2, help="LEARNING_DECAY_STEP")
+    parser.add_argument('--decay_gamma', type=float, default=0.9, help="LEARNING_DEACAY_GAMMA")
     parser.add_argument('--gan_lr', type=float, default=0.0002, help="learning rate for gan")
-    parser.add_argument('--max-epoch', type=int, default=100)
+    parser.add_argument('--epoch', type=int, default=100)
     parser.add_argument('--stepsize', type=int, default=30)
     parser.add_argument('--temp', type=float, default=1.0, help="temp")
     parser.add_argument('--num-centers', type=int, default=1)
@@ -60,7 +63,7 @@ def get_args():
     parser.add_argument('--nz', type=int, default=100)
     parser.add_argument('--ns', type=int, default=1)
     parser.add_argument('--eval-freq', type=int, default=1)
-    parser.add_argument('--print-freq', type=int, default=100)
+    parser.add_argument('--eval_period', type=int, default=2)
     parser.add_argument('--gpu', type=str, default='0')
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--use-cpu', action='store_true')
@@ -103,7 +106,28 @@ def main():
     net = build_model(options)
 
     # initial optimizer
+    optimizer, scheduler = build_optimizer(options, net)
 
-    # 
+    if options['model_name'] == 'RejectModel':
+        loss = rzloss(margin=0.25, gamma=80)
+    else:
+        loss = nn.CrossEntropyLoss()
+
+    # training model
+    best_score = 0
+    for epoch in range(options['epoch']):
+        model = trainer.train_epoch(model, optimizer, loss, epoch, options)
+
+        # validation
+        if epoch % options['eval_period'] == 0:
+            val_acc, _, _, _ = validator(
+                model, optimizer, loss, epoch, best_score, options)
+
+            # update the best validation accuracy
+            if val_acc > best_score:
+                best_score = val_acc
+
+            # save weight
+
 if __name__ == '__main__':
     main()
