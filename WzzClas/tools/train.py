@@ -114,6 +114,9 @@ def main():
         loss = nn.CrossEntropyLoss()
 
     # training model
+    trainer = xx
+    validator = xx
+    
     best_score = 0
     for epoch in range(options['epoch']):
         model = trainer.train_epoch(model, optimizer, loss, epoch, options)
