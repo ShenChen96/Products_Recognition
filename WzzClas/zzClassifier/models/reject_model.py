@@ -3,8 +3,8 @@ from torch import nn
 import inspect
 
 
-from core import Registry
-from core import MODEL_REGISTRY, Basic
+from zzClassifier.core import Registry
+from zzClassifier.core import MODEL_REGISTRY, Basic
 
 
 # registry all func in models

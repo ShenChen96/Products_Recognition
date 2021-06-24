@@ -10,12 +10,12 @@ import torch.backends.cudnn as cudnn
 from copy import deepcopy
 import importlib
 import logging
-import sys
-sys.path.append("./")
 
 import argparse
 from collections import defaultdict
 from tqdm import tqdm
+import sys
+sys.path.append("../")
 
 from zzClassifier.datasets import Product_Dataloader_Close, Product_Dataloader_Open
 from zzClassifier.losses import rzloss
@@ -102,95 +102,8 @@ def main():
     print("Creating model: {}".format(options['model_name']))
     net = build_model(options)
 
-    exit(1)
-    # if options['cs']:
-    #     net = classifier32ABN(num_classes=options['num_classes'])
-    # else:
-    #     net = classifier32(num_classes=options['num_classes'])
-    feat_dim = 128
+    # initial optimizer
 
-    if options['cs']:
-        print("Creating GAN")
-        nz, ns = options['nz'], 1
-
-        netG = gan.Generator32(1, nz, 64, 3)
-        netD = gan.Discriminator32(1, 3, 64)
-
-        fixed_noise = torch.FloatTensor(64, nz, 1, 1).normal_(0, 1)
-        criterionD = nn.BCELoss()
-
-    # Loss
-    options.update(
-        {
-            'feat_dim': feat_dim,
-            'use_gpu': use_gpu
-        }
-    )
-
-    Loss = importlib.import_module('zzClassifier.losses.' + options['loss'])
-    criterion = getattr(Loss, options['loss'])(**options)
-
-    if use_gpu:
-        net = nn.DataParallel(net).cuda()
-        criterion = criterion.cuda()
-        if options['cs']:
-            netG = nn.DataParallel(netG, device_ids=[i for i in range(len(options['gpu'].split(',')))]).cuda()
-            netD = nn.DataParallel(netD, device_ids=[i for i in range(len(options['gpu'].split(',')))]).cuda()
-            fixed_noise.cuda()
-
-    model_path = os.path.join(options['outf'], 'models', options['dataset'])
-    if not os.path.exists(model_path):
-        os.makedirs(model_path)
-
-    file_name = '{}_{}_{}'.format(options['model_name'], options['loss'], options['cs'])
-
-    if options['eval']:
-        net, criterion = load_networks(net, model_path, file_name, criterion=criterion)
-        results = test(net, criterion, testloader, outloader, epoch=0, **options)
-        print("Acc (%): {:.3f}\t AUROC (%): {:.3f}\t OSCR (%): {:.3f}\t".format(results['ACC'], results['AUROC'],
-                                                                                results['OSCR']))
-
-        return results
-
-    params_list = [{'params': net.parameters()},
-                   {'params': criterion.parameters()}]
-
-    optimizer = torch.optim.SGD(params_list, lr=options['lr'], momentum=0.9, weight_decay=1e-4)
-
-    if options['cs']:
-        optimizerD = torch.optim.Adam(netD.parameters(), lr=options['gan_lr'], betas=(0.5, 0.999))
-        optimizerG = torch.optim.Adam(netG.parameters(), lr=options['gan_lr'], betas=(0.5, 0.999))
-
-    if options['stepsize'] > 0:
-        scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[30, 60, 90, 120])
-
-    start_time = time.time()
-
-    for epoch in range(options['max_epoch']):
-        print("==> Epoch {}/{}".format(epoch + 1, options['max_epoch']))
-
-        if options['cs']:
-            train_cs(net, netD, netG, criterion, criterionD,
-                     optimizer, optimizerD, optimizerG,
-                     trainloader, epoch=epoch, **options)
-
-        train(net, criterion, optimizer, trainloader, epoch=epoch, **options)
-
-        if options['eval_freq'] > 0 and (epoch + 1) % options['eval_freq'] == 0 or (epoch + 1) == options['max_epoch']:
-            print("==> Test", options['loss'])
-            results = test(net, criterion, testloader, outloader, epoch=epoch, **options)
-            print("Acc (%): {:.3f}\t AUROC (%): {:.3f}\t OSCR (%): {:.3f}\t".format(results['ACC'], results['AUROC'],
-                                                                                    results['OSCR']))
-
-            save_networks(net, model_path, file_name, criterion=criterion)
-
-        if options['stepsize'] > 0: scheduler.step()
-
-    elapsed = round(time.time() - start_time)
-    elapsed = str(datetime.timedelta(seconds=elapsed))
-    print("Finished. Total elapsed time (h:m:s): {}".format(elapsed))
-
-    return results
-
+    # 
 if __name__ == '__main__':
     main()
