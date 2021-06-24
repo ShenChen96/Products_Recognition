@@ -89,6 +89,15 @@ def compare_imgs(img1_path, img2_path, img1_w, img2_w, kp1, des1, kp2, des2):
         return 'UnConnect'
 
 def sim_img_insertion_sort(images_list, little_pussy):
+    """
+        get the spatial sort image sequence.
+    Args:
+        images_list(list): List of random image sequence
+        little_pussy(dict): Kps and Des info of images_list
+    Returns:
+        images_list(list): List of img sequence, after spatial sorting from left to right
+    """
+
     length = len(images_list)
     split_index = [0]
     repp = []
